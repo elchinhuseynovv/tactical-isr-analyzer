@@ -1,0 +1,14 @@
+# Ignore virtual environments
+venv/
+env/
+
+# Ignore video and image files (too large for GitHub)
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.png
+temp_uav_feed.mp4
+
+# Ignore Python cache
+__pycache__/
