@@ -1,22 +1,20 @@
-import os
 import cv2
 import json
-import streamlit as st
+import threading
+import time
 from PIL import Image
 from google import genai
 from google.genai import types
 
-
 try:
     client = genai.Client()
 except Exception as e:
-    st.error("API Error: Please make sure GEMINI_API_KEY is set in your terminal.")
+    print("API Error: Please make sure GEMINI_API_KEY is set in your terminal.")
+    exit()
 
 ISR_SYSTEM_PROMPT = """
 Siz taktiki komandanlıq sistemi daxilində fəaliyyət göstərən qabaqcıl PUA kəşfiyyatı (ISR) süni intellekt köməkçisisiniz.
-Vəzifəniz verilmiş hava kadrlarını analiz etmək və Azərbaycan dilində strukturlaşdırılmış hesabat yaratmaqdır.
-
-Aşağıdakı struktura uyğun YALNIZ düzgün (valid) JSON formatında cavab verin. Heç bir əlavə mətn yazmayın:
+Aşağıdakı struktura uyğun YALNIZ düzgün (valid) JSON formatında cavab verin:
 {
   "status": "HƏDƏF_AŞKARLANDI və ya TƏMİZ",
   "threat_level": "AŞAĞI, ORTA, YÜKSƏK, və ya NAMƏLUM",
@@ -24,84 +22,104 @@ Aşağıdakı struktura uyğun YALNIZ düzgün (valid) JSON formatında cavab ve
     {
       "type": "Məsələn: Zirehli texnika / Şəxsi heyət / Bina",
       "count": 1,
-      "location": "Məsələn: Yuxarı-Sağ / Mərkəz",
+      "box_2d": [ymin, xmin, ymax, xmax], 
       "description": "Qısa əməliyyat təsviri"
     }
   ],
-  "terrain_assessment": "Ətraf mühit və relyef haqqında qısa qeyd",
-  "recommended_action": "Məsələn: Müşahidəni davam etdir / Koordinatları göndər"
+  "terrain_assessment": "Ətraf mühit və relyef haqqında qısa qeyd"
 }
+ÖNƏMLİ: 'box_2d' dəyərləri 0 ilə 1000 arasındadır (0,0 yuxarı sol, 1000,1000 aşağı sağ). Əgər hədəf yoxdursa, 'targets' massivini boş saxlayın.
 """
+latest_report = None
+is_analyzing = False
+last_analysis_time = time.time()
+ANALYSIS_INTERVAL = 4 # Seconds between AI scans
 
-st.set_page_config(page_title="Taktiki PUA Kəşfiyyat Analizatoru", layout="wide")
-st.title("PUA (Dron) Kəşfiyyatı və Analiz Platforması")
-st.caption("Avtomatlaşdırılmış Kadr Çıxarışı və Taktiki Telemetriya Sistemi")
+def analyze_frame_background(frame_bgr):
+    """Background thread to process the AI request without freezing the video."""
+    global latest_report, is_analyzing
+    is_analyzing = True
+    
+    # Convert OpenCV BGR to standard RGB for Gemini
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    pil_image = Image.fromarray(frame_rgb)
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.6-flash", 
+            contents=[pil_image, "Taktiki ISR analizi aparin."],
+            config=types.GenerateContentConfig(
+                system_instruction=ISR_SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                temperature=0.2 
+            )
+        )
+        latest_report = json.loads(response.text)
+    except Exception as e:
+        print(f"Background AI Error: {e}")
+    finally:
+        is_analyzing = False
 
-st.sidebar.header("Sistem Idarəetməsi")
-video_file = st.sidebar.file_uploader("Kəşfiyyat Videosunu Yüklə (.mp4)", type=["mp4", "avi", "mov"])
-frame_interval = st.sidebar.slider("Kadr Çıxarış İntervalı (Saniyə)", 1, 10, 3)
-max_frames = st.sidebar.slider("Analiz ediləcək kadrların maksimal sayı", 1, 10, 3)
+print("Initializing Tactical HUD...")
+cap = cv2.VideoCapture(0)
 
-col1, col2 = st.columns([2, 1])
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-with col1:
-    st.subheader("Canlı Video və Analiz Paneli")
-    if video_file is not None:
-        temp_video_path = "temp_uav_feed.mp4"
-        with open(temp_video_path, "wb") as f:
-            f.write(video_file.read())
-        st.video(temp_video_path)
+if not cap.isOpened():
+    print("Error: Could not open PC camera.")
+    exit()
+
+print("Camera active. Press 'Q' to exit.")
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    height, width, _ = frame.shape
+    current_time = time.time()
+
+    if (current_time - last_analysis_time) >= ANALYSIS_INTERVAL:
+        if not is_analyzing:
+            # Pass a copy of the frame to the background thread
+            thread = threading.Thread(target=analyze_frame_background, args=(frame.copy(),))
+            thread.start()
+            last_analysis_time = current_time
+
+    status_color = (0, 165, 255) if is_analyzing else (0, 255, 0) # Orange if analyzing, Green if ready
+    sys_text = "AI STATUS: SCANNING..." if is_analyzing else "AI STATUS: ACTIVE"
+    cv2.putText(frame, sys_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
+
+    if latest_report:
+        threat_level = latest_report.get("threat_level", "NAMELUM")
+        t_color = (0, 0, 255) if threat_level == "YUKSEK" else (0, 255, 255) # Red for High, Yellow for others
         
-        if st.button("Taktiki Analizə Başla", use_container_width=True):
-            with col2:
-                st.subheader("Kəşfiyyat Jurnalı (SITREP)")
-                analysis_placeholder = st.empty()
-            
-            with st.spinner("Kadrlar çıxarılır və analiz edilir..."):
-                cap = cv2.VideoCapture(temp_video_path)
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                frame_skip = int(fps * frame_interval)
+        cv2.putText(frame, f"THREAT LEVEL: {threat_level}", (20, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.7, t_color, 2)
+        cv2.putText(frame, f"STATUS: {latest_report.get('status', '')}", (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, t_color, 2)
 
-                frame_count = 0
-                analyzed_count = 0
+        for target in latest_report.get("targets", []):
+            if "box_2d" in target and len(target["box_2d"]) == 4:
+                ymin, xmin, ymax, xmax = target["box_2d"]
+                
+                left = int((xmin / 1000) * width)
+                top = int((ymin / 1000) * height)
+                right = int((xmax / 1000) * width)
+                bottom = int((ymax / 1000) * height)
+                
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 3)
+                
+                label = f"{target.get('type', 'HEDEF')}"
+                cv2.putText(frame, label, (left, max(30, top - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-                while cap.isOpened() and analyzed_count < max_frames:
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
+    center_x, center_y = width // 2, height // 2
+    cv2.line(frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 255, 0), 1)
+    cv2.line(frame, (center_x, center_y - 20), (center_x, center_y + 20), (0, 255, 0), 1)
 
-                    if frame_count % frame_skip == 0:
-                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        pil_image = Image.fromarray(frame_rgb)
+    cv2.imshow("Taktiki PUA Merkezi", frame)
 
-                        st.image(pil_image, caption=f"Kadr {analyzed_count + 1} (Zaman: {frame_count//fps} san)", use_container_width=True)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-                        try:
-                            response = client.models.generate_content(
-                                model="gemini-2.5-flash",
-                                contents=[pil_image, "Bu kadrı taktiki ISR protokollarına əsasən analiz et."],
-                                config=types.GenerateContentConfig(
-                                    system_instruction=ISR_SYSTEM_PROMPT,
-                                    response_mime_type="application/json",
-                                    temperature=0.2 
-                                )
-                            )
-                            report_json = json.loads(response.text)
-                            with col2:
-                                with st.expander(f"Zaman: {frame_count//fps} saniyə - {report_json.get('status', 'BİLİNMİR')}", expanded=True):
-                                    st.json(report_json)
-                                    
-                        except Exception as e:
-                            st.error(f"Xəta baş verdi (Error): {e}")
-                            
-                        analyzed_count += 1
-                        
-                    frame_count += 1
-                cap.release()
-                st.success("Taktiki analiz tamamlandı.")
-    else:
-        st.info("Taktiki operatordan video axını gözlənilir...")
-
-with col2:
-    st.subheader("Kəşfiyyat Jurnalı (SITREP)")
-    st.write("Hədəf qeydləri və avtomatlaşdırılmış ərazi qiymətləndirmələri burada görünəcək.")
+cap.release()
+cv2.destroyAllWindows()
