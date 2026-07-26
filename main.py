@@ -1,0 +1,50 @@
+import cv2
+import time
+
+from modules.vision_engine import VisionEngine
+from modules.hud_renderer import HUDRenderer
+from modules.telemetry_logger import TelemetryLogger
+
+def main():
+    print("Sistem Yüklənir: Taktiki Edge AI (Modulyar Sistem)...")
+
+    vision = VisionEngine(model_path="yolov8n.pt")
+    hud = HUDRenderer()
+    logger = TelemetryLogger(log_dir="logs")
+
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+    if not cap.isOpened():
+        print("Xəta: PC kamerası açılmadı.")
+        return
+
+    print("Sistem Aktivdir. Çıxmaq üçün 'Q' düyməsini basın.")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        start_time = time.time()
+
+        detections = vision.process_frame(frame)
+
+        logger.log_detections(detections)
+
+        fps = int(1.0 / (time.time() - start_time))
+        output_frame = hud.draw_overlay(frame, detections, fps)
+
+        cv2.imshow("Taktiki Izleme Merkezi", output_frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    logger.close()
+    print("Sistem söndürüldü.")
+
+if __name__ == "__main__":
+    main()
