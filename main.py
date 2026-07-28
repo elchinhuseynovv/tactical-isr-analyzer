@@ -33,16 +33,15 @@ def main():
 
         start_time = time.time()
 
-        detections = vision.process_frame(frame)
+        detections, kill_box = vision.process_frame(frame)
         logger.log_detections(detections)
 
         fps = int(1.0 / (time.time() - start_time))
-        output_frame = hud.draw_overlay(frame, detections, fps, thermal_mode)
+        output_frame = hud.draw_overlay(frame, detections, kill_box, fps, thermal_mode)
 
         cv2.imshow("Taktiki Izleme Merkezi", output_frame)
 
         key = cv2.waitKey(1) & 0xFF
-        
         if key == ord('q'):
             break
         elif key == ord('t'):

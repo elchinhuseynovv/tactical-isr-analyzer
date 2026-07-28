@@ -4,9 +4,7 @@ from datetime import datetime
 
 class TelemetryLogger:
     def __init__(self, log_dir="logs"):
-        """Initializes the logging system and creates a new CSV file for the mission."""
         self.log_dir = log_dir
-        
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
             
@@ -15,25 +13,27 @@ class TelemetryLogger:
         
         self.file = open(self.filepath, mode='w', newline='')
         self.writer = csv.writer(self.file)
-        self.writer.writerow(["Timestamp", "Target Class", "Threat Level", "Confidence (%)", "Bounding Box"])
+        # Added 'Lock Status' to the CSV columns
+        self.writer.writerow(["Timestamp", "Target Class", "Threat Level", "Confidence (%)", "Lock Status", "Bounding Box"])
 
     def log_detections(self, detections):
-        """Writes target data to the CSV file if any threats are detected."""
         if not detections:
-            return
+            return 
             
-        current_time = datetime.now().strftime("%H:%M:%S.%f")[:-3] 
+        current_time = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         
         for target in detections:
+            is_locked = "YES" if target.get("is_locked", False) else "NO"
+            
             self.writer.writerow([
                 current_time,
                 target["class_name"],
                 target["threat_level"],
                 target["confidence"],
+                is_locked,
                 str(target["box"])
             ])
 
     def close(self):
-        """Safely saves and closes the file when the system is shut down."""
         if self.file:
             self.file.close()
