@@ -10,7 +10,7 @@ class VisionEngine:
         kx2, ky2 = (width // 2) + 150, (height // 2) + 150
         kill_box = (kx1, ky1, kx2, ky2)
 
-        results = self.model.predict(source=frame, conf=0.4, verbose=False)
+        results = self.model.track(source=frame, conf=0.4, persist=True, verbose=False)
         detections = []
 
         for result in results:
@@ -20,6 +20,13 @@ class VisionEngine:
                 conf = int(box.conf[0] * 100)
                 cls_id = int(box.cls[0])
                 class_name = self.model.names[cls_id].upper()
+
+                # yeni: the unique tracking ID by ByteTrack
+                if box.id is not None:
+                    track_id = int(box.id[0])
+                    target_id_str = f"TRG-{track_id:03d}" # Formatlar TRG-001, TRG-002...
+                else:
+                    target_id_str = "TRG-???"
 
                 if cls_id in [2, 3, 5, 7]:
                     threat_level = "YUKSEK"
@@ -34,10 +41,10 @@ class VisionEngine:
                 tx1, ty1, tx2, ty2 = int(x1), int(y1), int(x2), int(y2)
 
                 in_kill_zone = (tx1 < kx2 and tx2 > kx1 and ty1 < ky2 and ty2 > ky1)
-                
                 is_locked = bool(in_kill_zone and threat_level == "YUKSEK")
 
                 detections.append({
+                    "target_id": target_id_str,
                     "box": (tx1, ty1, tx2, ty2),
                     "confidence": conf,
                     "class_name": class_name,

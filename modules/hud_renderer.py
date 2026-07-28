@@ -27,6 +27,7 @@ class HUDRenderer:
             x1, y1, x2, y2 = target["box"]
             t_level = target["threat_level"]
             is_locked = target.get("is_locked", False)
+            t_id = target.get("target_id", "UNK")
             color = self.threat_colors.get(t_level, (0, 255, 0))
 
             if is_locked:
@@ -37,7 +38,8 @@ class HUDRenderer:
             else:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             
-            label = f"[{target['class_name']}] {t_level} ({target['confidence']}%)"
+            # HUD Label olacaq (e.g., "[TRG-001] CAR")
+            label = f"[{t_id}] {target['class_name']} ({target['confidence']}%)"
             cv2.putText(frame, label, (x1, max(20, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
         if system_locked:

@@ -13,8 +13,8 @@ class TelemetryLogger:
         
         self.file = open(self.filepath, mode='w', newline='')
         self.writer = csv.writer(self.file)
-        # Added 'Lock Status' to the CSV columns
-        self.writer.writerow(["Timestamp", "Target Class", "Threat Level", "Confidence (%)", "Lock Status", "Bounding Box"])
+        # UPGRADE: elave olundu 'Target ID'
+        self.writer.writerow(["Timestamp", "Target ID", "Target Class", "Threat Level", "Confidence (%)", "Lock Status", "Bounding Box"])
 
     def log_detections(self, detections):
         if not detections:
@@ -24,9 +24,11 @@ class TelemetryLogger:
         
         for target in detections:
             is_locked = "YES" if target.get("is_locked", False) else "NO"
+            t_id = target.get("target_id", "UNK")
             
             self.writer.writerow([
                 current_time,
+                t_id,
                 target["class_name"],
                 target["threat_level"],
                 target["confidence"],
