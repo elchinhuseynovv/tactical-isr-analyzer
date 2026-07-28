@@ -7,7 +7,7 @@ from modules.telemetry_logger import TelemetryLogger
 
 def main():
     print("Sistem Yüklənir: Taktiki Edge AI (Modulyar Sistem)...")
-
+    
     vision = VisionEngine(model_path="yolov8n.pt")
     hud = HUDRenderer()
     logger = TelemetryLogger(log_dir="logs")
@@ -20,7 +20,11 @@ def main():
         print("Xəta: PC kamerası açılmadı.")
         return
 
-    print("Sistem Aktivdir. Çıxmaq üçün 'Q' düyməsini basın.")
+    print("Sistem Aktivdir.")
+    print("-> Çıxmaq üçün 'Q' düyməsini basın.")
+    print("-> Termal kameraya keçmək üçün 'T' düyməsini basın.")
+
+    thermal_mode = False 
 
     while True:
         ret, frame = cap.read()
@@ -30,16 +34,19 @@ def main():
         start_time = time.time()
 
         detections = vision.process_frame(frame)
-
         logger.log_detections(detections)
 
         fps = int(1.0 / (time.time() - start_time))
-        output_frame = hud.draw_overlay(frame, detections, fps)
+        output_frame = hud.draw_overlay(frame, detections, fps, thermal_mode)
 
         cv2.imshow("Taktiki Izleme Merkezi", output_frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        key = cv2.waitKey(1) & 0xFF
+        
+        if key == ord('q'):
             break
+        elif key == ord('t'):
+            thermal_mode = not thermal_mode 
 
     cap.release()
     cv2.destroyAllWindows()
