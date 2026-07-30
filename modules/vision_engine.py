@@ -14,7 +14,7 @@ class VisionEngine:
         kx2, ky2 = (width // 2) + 150, (height // 2) + 150
         kill_box = (kx1, ky1, kx2, ky2)
 
-        results = self.model.track(source=frame, conf=0.4, persist=True, verbose=False)
+        results = self.model.track(source=frame, conf=0.4, imgsz=320, persist=True, verbose=False)
         detections = []
 
         for result in results:
