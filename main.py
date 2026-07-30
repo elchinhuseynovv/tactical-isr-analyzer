@@ -8,7 +8,7 @@ from modules.telemetry_logger import TelemetryLogger
 def main():
     print("Sistem Yüklənir: Taktiki Edge AI (Modulyar Sistem)...")
     
-    vision = VisionEngine(model_path="yolov8n.pt")
+    vision = VisionEngine(model_path="yolov8m_defence.pt")
     hud = HUDRenderer()
     logger = TelemetryLogger(log_dir="logs")
 

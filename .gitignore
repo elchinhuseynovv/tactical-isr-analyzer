@@ -1,14 +1,11 @@
-# Ignore virtual environments
+# Ignore AI Model Weights
+*.pt
+
+# Ignore Datasets and Training Logs
+dataset/
+runs/
+__pycache__/
+
+# Ignore Virtual Environments
 venv/
 env/
-
-# Ignore video and image files (too large for GitHub)
-*.mp4
-*.avi
-*.mov
-*.jpg
-*.png
-temp_uav_feed.mp4
-
-# Ignore Python cache
-__pycache__/
