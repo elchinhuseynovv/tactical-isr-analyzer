@@ -13,8 +13,8 @@ class VisionEngine:
 
     def process_frame(self, frame, combat_mode=False):
         height, width = frame.shape[:2]
-        kx1, ky1 = (width // 2) - 150, (height // 2) - 150
-        kx2, ky2 = (width // 2) + 150, (height // 2) + 150
+        kx1, ky1 = (width // 2) - 100, (height // 2) - 100
+        kx2, ky2 = (width // 2) + 100, (height // 2) + 100
         kill_box = (kx1, ky1, kx2, ky2)
 
         results = self.model.track(source=frame, conf=0.25, imgsz=320, persist=True, verbose=False)

@@ -14,11 +14,15 @@ def main():
 
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
 
     if not cap.isOpened():
         print("Xəta: PC kamerası açılmadı.")
         return
+
+    cv2.namedWindow("Taktiki Izleme Merkezi", cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty("Taktiki Izleme Merkezi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    
 
     print("Sistem Aktivdir.")
     print("-> Çıxmaq üçün 'Q' düyməsini basın.")
