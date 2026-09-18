@@ -3,18 +3,21 @@ from ultralytics import YOLO
 class VisionEngine:
     def __init__(self, model_path="yolov8m_defence.pt"): 
         self.model = YOLO(model_path)
+        print("\n=== AI RECOGNIZED CLASSES ===")
+        print(self.model.names)
+        print("=============================\n")
         
         self.military_keywords = ["DRONE", "UAV", "MISSILE", "TANK", "FIGHTER JET", "WARSHIP", "HELICOPTER", "AIRCRAFT", "PLANE"]
         self.personnel_keywords = ["PERSON", "SOLDIER", "INFANTRY"]
         self.vehicle_keywords = ["CAR", "TRUCK", "BUS", "VAN", "VEHICLE"]
 
-    def process_frame(self, frame):
+    def process_frame(self, frame, combat_mode=False):
         height, width = frame.shape[:2]
         kx1, ky1 = (width // 2) - 150, (height // 2) - 150
         kx2, ky2 = (width // 2) + 150, (height // 2) + 150
         kill_box = (kx1, ky1, kx2, ky2)
 
-        results = self.model.track(source=frame, conf=0.4, imgsz=320, persist=True, verbose=False)
+        results = self.model.track(source=frame, conf=0.25, imgsz=320, persist=True, verbose=False)
         detections = []
 
         for result in results:
@@ -34,7 +37,12 @@ class VisionEngine:
                     target_id_str = "HDF-???"
 
                 # DINAMIK TEHLUKE MENTIQI (Dynamic Threat Logic)
-                if any(keyword in class_name for keyword in self.military_keywords):
+                if combat_mode and any(keyword in class_name for keyword in ["BUS", "VAN", "TRUCK"]):
+                    threat_level = "YUKSEK"
+                    target_type = "POTENSIAL ZIREHLI"
+                    class_name = "ZIREHLI (OVERRIDE)"
+
+                elif any(keyword in class_name for keyword in self.military_keywords):
                     threat_level = "YUKSEK"
                     target_type = "HERBI TEXNIKA"
                 elif any(keyword in class_name for keyword in self.vehicle_keywords):
@@ -48,9 +56,7 @@ class VisionEngine:
                     target_type = "UMUMI OBYEKT"
 
                 tx1, ty1, tx2, ty2 = int(x1), int(y1), int(x2), int(y2)
-
                 in_kill_zone = (tx1 < kx2 and tx2 > kx1 and ty1 < ky2 and ty2 > ky1)
-                
                 is_locked = bool(in_kill_zone and threat_level == "YUKSEK")
 
                 detections.append({

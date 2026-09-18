@@ -23,8 +23,10 @@ def main():
     print("Sistem Aktivdir.")
     print("-> Çıxmaq üçün 'Q' düyməsini basın.")
     print("-> Termal kameraya keçmək üçün 'T' düyməsini basın.")
+    print("-> Müharibə rejimi (Domain Override) üçün 'M' düyməsini basın.")
 
     thermal_mode = False 
+    combat_mode = False
 
     while True:
         ret, frame = cap.read()
@@ -33,19 +35,23 @@ def main():
 
         start_time = time.time()
 
-        detections, kill_box = vision.process_frame(frame)
+        detections, kill_box = vision.process_frame(frame, combat_mode=combat_mode)
         logger.log_detections(detections)
 
         fps = int(1.0 / (time.time() - start_time))
         output_frame = hud.draw_overlay(frame, detections, kill_box, fps, thermal_mode)
-
+        if combat_mode:
+            cv2.putText(output_frame,"MUHARIBE REJIMI: AKTIV (OVERRIDE)", (30, 40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         cv2.imshow("Taktiki Izleme Merkezi", output_frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
         elif key == ord('t'):
-            thermal_mode = not thermal_mode 
+            thermal_mode = not thermal_mode
+        elif key == ord('m'):
+            combat_mode = not combat_mode
 
     cap.release()
     cv2.destroyAllWindows()
